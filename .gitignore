@@ -1,0 +1,51 @@
+### Modified from https://github.com/conan-io/examples2/blob/main/.gitignore
+
+**/conan-*
+**/cmake_install.cmake
+**/CMakeCache.txt
+**/compressor
+**/Makefile
+**/CMakeFiles
+**/cmake-build-*
+**/deactivate_conanbuildenv*
+
+.DS_Store
+.vscode/
+
+# Compiled artifacts
+*.slo
+*.lo
+*.o
+*.obj
+*.elf
+*.protected
+
+# Cache
+__pycache__/*
+build/*
+*.pyc
+tmp/
+
+# Virtualenv
+venv/
+.venv/
+
+# IDE
+.idea/*
+.project
+.pydevproject
+.settings/*
+.ropeproject/*
+
+.tox
+CMakeUserPresets.json
+**/generators/**
+**/build/**
+conanbuild*
+conanrun*
+deactivate_conanbuild*
+deactivate_conanrun*
+tutorial/versioning/revisions/intro/chat/*
+tutorial/versioning/revisions/intro/hello/*
+examples/libraries/tensorflow-lite/pose-estimation/pose-estimation
+examples/libraries/imgui/introduction/bindings
