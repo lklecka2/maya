@@ -1,6 +1,6 @@
 [requires]
 lief/0.16.2
-capstone/5.0.6
+capstone/5.0.7
 keystone/0.9.2
 
 [options]
@@ -14,6 +14,7 @@ lief/*:with_oat=False
 
 # AArch64 Only
 capstone/*:arm=False
+capstone/*:arm64=True
 capstone/*:x86=False
 capstone/*:mips=False
 capstone/*:ppc=False

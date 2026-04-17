@@ -45,6 +45,16 @@ auto main(int argc, char** argv) -> int {
                 if (offset + 4 <= func_bounds.patched_code.size()) {
                     std::memcpy(func_bounds.patched_code.data() + offset, &patched_insn, 4);
                 }
+                if (reloc.type == RELOC_ADRP_ADD && reloc.paired_instruction_addr != 0) {
+                    uint64_t target = Patcher::resolve_target(ctx, reloc);
+                    uint32_t add_insn = reloc.paired_insn_bytes;
+                    uint32_t new_lo12 = static_cast<uint32_t>(target & 0xFFFu);
+                    add_insn = (add_insn & 0xFFC003FFu) | (new_lo12 << 10);
+                    uint64_t add_offset = reloc.paired_instruction_addr - func_bounds.start_addr;
+                    if (add_offset + 4 <= func_bounds.patched_code.size()) {
+                        std::memcpy(func_bounds.patched_code.data() + add_offset, &add_insn, 4);
+                    }
+                }
             }
         }
 

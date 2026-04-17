@@ -10,8 +10,12 @@
 class InstructionLifter {
 public:
     InstructionLifter() {
-        if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &cs_handle) != CS_ERR_OK) {
-            throw std::runtime_error("Failed to initialize Capstone for InstructionLifter");
+        const cs_err cs_err_code = cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &cs_handle);
+        if (cs_err_code != CS_ERR_OK) {
+            throw std::runtime_error(
+                "Failed to initialize Capstone for InstructionLifter with CS_ARCH_ARM64: " +
+                std::string(cs_strerror(cs_err_code))
+            );
         }
         cs_option(cs_handle, CS_OPT_DETAIL, CS_OPT_ON);
 
@@ -95,6 +99,13 @@ public:
                     result.assembly += "Ltarget_" + std::to_string(pool.size()) + ":\n";
                     result.assembly += load_abs("x15", target, pool) + "br x15\n";
                     result.assembly += "Lskip_abs_branch_" + std::to_string(pool.size()-1) + ":\n";
+                    result.was_lifted = true;
+                }
+                else if (insn->id == ARM64_INS_LDR && detail->arm64.op_count == 2 &&
+                         detail->arm64.operands[1].type == ARM64_OP_IMM) {
+                    uint64_t target = detail->arm64.operands[1].imm;
+                    std::string reg = cs_reg_name(cs_handle, detail->arm64.operands[0].reg);
+                    result.assembly = load_abs(reg, target, pool);
                     result.was_lifted = true;
                 }
             }

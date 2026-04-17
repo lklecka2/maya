@@ -17,6 +17,7 @@ enum RelocType : std::uint8_t {
     RELOC_BRANCH,
     RELOC_ADRP,
     RELOC_ADR,
+    RELOC_ADRP_ADD,
     RELOC_OTHER
 };
 
@@ -25,6 +26,8 @@ struct RelocationEntry {
     RelocType type;
     uint64_t original_target;
     uint32_t original_insn_bytes;
+    uint64_t paired_instruction_addr = 0;
+    uint32_t paired_insn_bytes = 0;
 };
 
 struct FunctionBounds {

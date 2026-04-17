@@ -1,0 +1,4 @@
+sources:
+    5.0.7:
+      sha256: 6427a724726d161d1e05fb49fff8cd0064f67836c04ffca3c11d6d859e719caa
+      url: https://github.com/capstone-engine/capstone/archive/refs/tags/5.0.7.tar.gz

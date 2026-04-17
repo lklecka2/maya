@@ -44,6 +44,14 @@ public:
         auto* text_sec = ctx.binary->get_section(".text");
         uint64_t text_start = (text_sec != nullptr) ? text_sec->virtual_address() : 0;
         uint64_t text_end = (text_sec != nullptr) ? text_start + text_sec->size() : 0;
+        uint64_t user_code_cutoff = text_end;
+
+        for (const auto& sym : ctx.binary->symbols()) {
+            if (sym.name() == "__libc_start_main" && sym.value() != 0) {
+                user_code_cutoff = sym.value();
+                break;
+            }
+        }
 
         struct MsgInfo { uint64_t vaddr; uint64_t len; };
         struct FuncMsgs { MsgInfo enter; MsgInfo exit; };
@@ -52,7 +60,7 @@ public:
 
         for (const auto& sym : ctx.binary->symbols()) {
             if (sym.type() == LIEF::ELF::Symbol::TYPE::FUNC && sym.size() > 0) {
-                if (!InstrumentationPolicy::should_instrument(sym.name(), sym.value(), text_start, text_end)) {
+                if (!InstrumentationPolicy::should_instrument(sym.name(), sym.value(), text_start, text_end, user_code_cutoff)) {
                     continue;
                 }
 

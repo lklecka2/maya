@@ -18,8 +18,12 @@ void PointerFixer::fix(ProtectorContext& ctx) {
     int64_t shift = static_cast<int64_t>(mirrored.new_start_addr) - static_cast<int64_t>(old_start);
 
     csh handle;
-    if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &handle) != CS_ERR_OK) {
-        throw std::runtime_error("Failed to initialize Capstone");
+    const cs_err cs_err_code = cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &handle);
+    if (cs_err_code != CS_ERR_OK) {
+        throw std::runtime_error(
+            "Failed to initialize Capstone for InstructionLifter with CS_ARCH_ARM64: " +
+            std::string(cs_strerror(cs_err_code))
+        );
     }
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
@@ -56,19 +60,18 @@ void PointerFixer::fix(ProtectorContext& ctx) {
         bool is_code_sec = (sec_name == ".text" || sec_name == ".init" || sec_name == ".fini" || sec_name == ".plt");
 
         if (!is_code_sec) {
-            // Pointer editing, symbol-strict matching
-            // Use 8-byte alignment for symbols in data sections usually
-            for (size_t i = 0; i + 8 <= buffer.size(); ++i) {
+            // Pointer editing in data sections.
+            // Only consider naturally aligned 8-byte slots; byte-by-byte
+            // scanning corrupts adjacent non-pointer data such as doubles.
+            for (size_t i = 0; i + 8 <= buffer.size(); i += 8) {
                 uint64_t val;
                 std::memcpy(&val, &buffer[i], 8);
 
-                // Patch if it points anywhere in the relocated range
                 if (val >= old_start && val < old_end) {
                     uint64_t shadow_val = val + shift;
                     std::memcpy(&buffer[i], &shadow_val, 8);
                     modified = true;
                     ptr_fixed++;
-                    i += 7;
                 }
             }
         } else {

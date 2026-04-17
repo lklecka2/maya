@@ -25,6 +25,26 @@ public:
             std::memcpy(huge_payload.data() + (func_bounds.new_start_addr - min_new_vaddr), func_bounds.patched_code.data(), func_bounds.patched_code.size());
         }
 
+        for (const auto& func_bounds : ctx.functions) {
+            for (const auto& reloc : func_bounds.relocations) {
+                if (reloc.type != RELOC_ADRP_ADD || reloc.paired_instruction_addr == 0) {
+                    continue;
+                }
+
+                uint64_t target = Patcher::resolve_target(ctx, reloc);
+                uint32_t add_insn = reloc.paired_insn_bytes;
+                uint32_t new_lo12 = static_cast<uint32_t>(target & 0xFFFu);
+                add_insn = (add_insn & 0xFFC003FFu) | (new_lo12 << 10);
+
+                uint64_t add_shadow_addr =
+                    func_bounds.new_start_addr + (reloc.paired_instruction_addr - func_bounds.start_addr);
+                uint64_t add_offset = add_shadow_addr - min_new_vaddr;
+                if (add_offset + 4 <= huge_payload.size()) {
+                    std::memcpy(huge_payload.data() + add_offset, &add_insn, 4);
+                }
+            }
+        }
+
         // Overwrite entries in mirrored code with branches to mini-stubs
         for (const auto& entry : mini_stub_map) {
             uint64_t original_addr = entry.first;
