@@ -1,25 +1,91 @@
 #include "core/Context.hpp"
-#include "core/Analyzer.hpp"
-#include "core/Planner.hpp"
-#include "core/Patcher.hpp"
-#include "core/PointerFixer.hpp"
-#include "core/Instrumenter.hpp"
-#include "core/Packager.hpp"
 #include "core/Logger.hpp"
+#include "core/ProtectionPipeline.hpp"
+#include "core/UpxLayout.hpp"
 #include <LIEF/ELF.hpp>
 #include <stdexcept>
 #include <cstring>
+#include <cstdlib>
+#include <string>
 
-auto main(int argc, char** argv) -> int {
-    if (argc != 2) {
-        Log::error(std::string("Usage: ") + argv[0] + " <aarch64_elf_binary>");
-        return 1;
+namespace {
+
+auto usage(const char* argv0) -> std::string {
+    return std::string("Usage: ") + argv0 +
+           " [--aggressive-symbols]"
+           " [--slot-strategy runtime-allocator|fixed-per-function]"
+           " [--output <path>]"
+           " [--report <path>]"
+           " <aarch64_elf_binary>";
+}
+
+auto parse_slot_strategy(const std::string& value) -> SlotStrategy {
+    if (value == "runtime-allocator") {
+        return SlotStrategy::RuntimeAllocator;
+    }
+    if (value == "fixed-per-function") {
+        return SlotStrategy::FixedPerFunction;
+    }
+    throw std::runtime_error(
+        "Unsupported slot strategy '" + value +
+        "'. Expected runtime-allocator or fixed-per-function."
+    );
+}
+
+auto require_value(int& index, int argc, char** argv, const std::string& option) -> std::string {
+    if (index + 1 >= argc) {
+        throw std::runtime_error(option + " requires a value.");
+    }
+    return argv[++index];
+}
+
+void apply_environment_options(ProtectionOptions& options) {
+    if (const char* aggressive = std::getenv("MAYA_AGGRESSIVE_SYMBOLS")) {
+        options.aggressive_symbols = std::strcmp(aggressive, "0") != 0;
+    }
+    if (const char* slot_strategy = std::getenv("MAYA_SLOT_STRATEGY")) {
+        options.slot_strategy = parse_slot_strategy(slot_strategy);
+    }
+}
+
+auto parse_args(int argc, char** argv) -> ProtectionContext {
+    if (argc < 2) {
+        throw std::runtime_error(usage(argv[0]));
     }
 
-    ProtectorContext ctx;
-    ctx.filename = argv[1];
+    ProtectionContext ctx;
+    apply_environment_options(ctx.options);
 
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--output" || arg == "-o") {
+            ctx.options.output_filename = require_value(i, argc, argv, "--output");
+        } else if (arg == "--report") {
+            ctx.options.report_filename = require_value(i, argc, argv, "--report");
+        } else if (arg == "--aggressive-symbols") {
+            ctx.options.aggressive_symbols = true;
+        } else if (arg == "--slot-strategy") {
+            ctx.options.slot_strategy = parse_slot_strategy(require_value(i, argc, argv, "--slot-strategy"));
+        } else if (!arg.empty() && arg[0] == '-') {
+            throw std::runtime_error("Unknown option: " + arg);
+        } else if (ctx.filename.empty()) {
+            ctx.filename = arg;
+        } else {
+            throw std::runtime_error("Only one input binary may be provided.");
+        }
+    }
+
+    if (ctx.filename.empty()) {
+        throw std::runtime_error(usage(argv[0]));
+    }
+    return ctx;
+}
+
+} // namespace
+
+auto main(int argc, char** argv) -> int {
     try {
+        ProtectionContext ctx = parse_args(argc, argv);
         ctx.binary = LIEF::ELF::Parser::parse(ctx.filename);
         if (!ctx.binary) {
             throw std::runtime_error("LIEF failed to parse the binary.");
@@ -30,38 +96,11 @@ auto main(int argc, char** argv) -> int {
 
         Log::info("Successfully loaded: " + ctx.filename);
 
-        Analyzer::analyze(ctx);
-        Planner::plan(ctx);
-        PointerFixer::fix(ctx);
-
-        // Apply basic relocations to the mirrored code
-        for (auto& func_bounds : ctx.functions) {
-            auto content = ctx.binary->get_content_from_virtual_address(func_bounds.start_addr, func_bounds.size);
-            func_bounds.patched_code.assign(content.begin(), content.end());
-            for (const auto& reloc : func_bounds.relocations) {
-                uint64_t new_insn_pc = func_bounds.new_start_addr + (reloc.instruction_addr - func_bounds.start_addr);
-                uint32_t patched_insn = Patcher::patch_instruction(reloc, new_insn_pc, ctx);
-                uint64_t offset = reloc.instruction_addr - func_bounds.start_addr;
-                if (offset + 4 <= func_bounds.patched_code.size()) {
-                    std::memcpy(func_bounds.patched_code.data() + offset, &patched_insn, 4);
-                }
-                if (reloc.type == RELOC_ADRP_ADD && reloc.paired_instruction_addr != 0) {
-                    uint64_t target = Patcher::resolve_target(ctx, reloc);
-                    uint32_t add_insn = reloc.paired_insn_bytes;
-                    uint32_t new_lo12 = static_cast<uint32_t>(target & 0xFFFu);
-                    add_insn = (add_insn & 0xFFC003FFu) | (new_lo12 << 10);
-                    uint64_t add_offset = reloc.paired_instruction_addr - func_bounds.start_addr;
-                    if (add_offset + 4 <= func_bounds.patched_code.size()) {
-                        std::memcpy(func_bounds.patched_code.data() + add_offset, &add_insn, 4);
-                    }
-                }
-            }
+        ProtectionPipeline::protect(ctx);
+        ctx.binary->write(ctx.options.output_filename);
+        if (ctx.options.require_upx_compatible_layout) {
+            UpxLayout::compact_program_headers(ctx.options.output_filename);
         }
-
-        auto instrument_res = Instrumenter::instrument(ctx);
-        Packager::build_and_add_section(ctx, instrument_res.final_payload, instrument_res.shadow_base, instrument_res.mini_stub_map);
-
-        ctx.binary->write(ctx.filename + ".protected");
         Log::info("Successfully wrote protected binary.");
 
     } catch (const std::exception& e) {

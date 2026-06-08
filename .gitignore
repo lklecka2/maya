@@ -19,6 +19,7 @@
 *.obj
 *.elf
 *.protected
+*.tsv
 
 # Cache
 __pycache__/*

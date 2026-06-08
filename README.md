@@ -61,17 +61,31 @@ cmake --build --preset conan-debug
 There are two helper scripts, `build_sample.sh` and `test_sample.sh`. The current compiler flags are quite restrictive, but it's to eliminate
 any extra variables.
 - `-mno-pc-relative-literal-loads -mcmodel=large` This gets rid of data-in-code. My system likely can handle without this since there's data in code with the static libc, but I have not tried it.
-- `-static -fno-pie -no-pie` This gets rid of ASLR and dynamic linking. There is some dynamic linking in the loader/libc, but probably requires more
-work. PIE adds complexity, but since the system already can handle relocation, this shouldn't be awful to implement.
-- `-fno-exceptions -fno-asynchronous-unwind-tables` This gets rid of C++ exceptions. This adds quite a bit of complexity, but it's a high priority once everything else is working.
-- `-mbranch-protection=none` I didn't want to deal with BTI, but it should be straight-forward to install these in my trampolines.
+- Static samples use `-static -fno-pie -no-pie`; PIE samples use `MAYA_SAMPLE_VARIANT=pie`.
+- Most C samples use `-fno-exceptions -fno-asynchronous-unwind-tables`; C++ EH samples use `MAYA_SAMPLE_VARIANT=exceptions` and are protected with `--slot-strategy fixed-per-function`.
+- `-mbranch-protection=none` keeps BTI/PAC out of the current sample matrix.
 ## How to Run
+```bash
+./build_sample.sh hello_world
 ./build/Debug/protector/protector samples/hello_world.elf
+chmod +x samples/hello_world.elf.protected
+./samples/hello_world.elf.protected
+```
+
+Run the full local validation matrix:
+
+```bash
+./validate_samples.sh
+```
+
+The script builds and protects the static C samples, selected PIE samples, C++
+exception samples in fixed-slot mode, and a protected PIE UPX smoke sample when
+`upx` is available.
 ## How to Debug
-- Run the result. Run `./test_sample.sh hello_world` then `ssh mayatest-eth "./hello_world.elf.protected && exit"`
+- Run the result locally after `./build_sample.sh <sample>` and `./build/Debug/protector/protector samples/<sample>.elf`.
 - `readelf` or `objdump`. readelf is universal, objdump requires `aarch64-linux-gnu-objdump` on x86
-- Step-through gdb: `ssh mayatest-eth "gdb -batch -ex 'set \$skip=5000' -ex 'set \$max=50000' -x trace.gdb hello_world.elf.protected && exit"` if you know the neighborhood of the crash, you can set a breakpoint slightly before it, run, then execute the trace.gdb script (set skip to 0 in this case)
-- Registers gdb: `ssh mayatest-eth "gdb -batch -ex 'b *0x4a69f0' -ex 'run' -ex 'info registers' hello_world.elf.protected && exit"` replace 0x4a69f0 with the last instruction address before crash
+- Step-through gdb: `gdb -batch -ex 'set $skip=5000' -ex 'set $max=50000' -x trace.gdb samples/hello_world.elf.protected` if you know the neighborhood of the crash, you can set a breakpoint slightly before it, run, then execute the trace.gdb script with `$skip` set to `0`.
+- Registers gdb: `gdb -batch -ex 'b *0x4a69f0' -ex 'run' -ex 'info registers' samples/hello_world.elf.protected`; replace `0x4a69f0` with the last instruction address before the crash.
 ## Setting up presentation
 I'm using `tmux` and I'm testing 2048.
 1. Build the project and run `./build_sample.sh 2048` then `./build/Debug/protector/protector samples/2048.elf`. There should be a `samples/2048.elf.protected`.

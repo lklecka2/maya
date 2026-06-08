@@ -2,58 +2,45 @@
 #include <LIEF/ELF.hpp>
 #include <memory>
 #include <string>
-#include <vector>
 #include <cstdint>
-#include <map>
 
-struct Instruction {
-    uint64_t address;
-    std::string mnemonic;
-    std::string op_str;
-    std::vector<uint8_t> bytes;
+enum class BinaryKind {
+    StaticExecutable,
+    PositionIndependentExecutable
 };
 
-enum RelocType : std::uint8_t {
-    RELOC_BRANCH,
-    RELOC_ADRP,
-    RELOC_ADR,
-    RELOC_ADRP_ADD,
-    RELOC_OTHER
+enum class SlotStrategy {
+    FixedPerFunction,
+    RuntimeAllocator
 };
 
-struct RelocationEntry {
-    uint64_t instruction_addr;
-    RelocType type;
-    uint64_t original_target;
-    uint32_t original_insn_bytes;
-    uint64_t paired_instruction_addr = 0;
-    uint32_t paired_insn_bytes = 0;
+struct ProtectionOptions {
+    std::string output_filename;
+    std::string report_filename;
+    bool allow_pie = true;
+    bool enable_cpp_exceptions = true;
+    bool require_upx_compatible_layout = true;
+    bool aggressive_symbols = false;
+    SlotStrategy slot_strategy = SlotStrategy::RuntimeAllocator;
 };
 
-struct FunctionBounds {
-    std::string name;
-    uint64_t start_addr;
-    uint64_t size;
-    uint64_t new_start_addr = 0;
-    std::vector<Instruction> instructions;
-    std::vector<RelocationEntry> relocations;
-    std::vector<uint8_t> patched_code;
+struct RuntimeFeatureSet {
+    BinaryKind binary_kind = BinaryKind::StaticExecutable;
+    bool has_interpreter = false;
+    bool has_eh_frame = false;
+    bool has_gcc_except_table = false;
+    bool has_cpp_personality = false;
+    bool upx_compatible_layout = false;
+    SlotStrategy slot_strategy = SlotStrategy::RuntimeAllocator;
 };
 
-struct Function {
-    std::string name;
-    uint64_t start_addr;
-    uint64_t size;
-    uint64_t relocated_start_addr;
-    uint32_t original_first_insn;
-};
-
-struct ProtectorContext {
+struct ProtectionContext {
     std::unique_ptr<LIEF::ELF::Binary> binary;
     uint64_t original_entry_point = 0;
+    uint64_t segment_request_bias = 0;
+    uint64_t final_image_shift = 0;
     bool is_aarch64 = false;
     std::string filename;
-    std::vector<FunctionBounds> functions;
-    std::vector<Function> instrumented_functions;
-    std::map<uint64_t, uint64_t> addr_map;
+    ProtectionOptions options;
+    RuntimeFeatureSet runtime_features;
 };
