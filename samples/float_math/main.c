@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#define MAYA_FIXTURE __attribute__((noinline, noipa, used))
 
-static double dot_product(const double *a, const double *b, int n) {
+static MAYA_FIXTURE double dot_product(const double *a, const double *b, int n) {
     double sum = 0.0;
     for (int i = 0; i < n; i++) {
         sum += a[i] * b[i];
@@ -12,7 +13,7 @@ static double dot_product(const double *a, const double *b, int n) {
     return sum;
 }
 
-static double polynomial(double x, const double *coeffs, int degree) {
+static MAYA_FIXTURE double polynomial(double x, const double *coeffs, int degree) {
     double result = coeffs[degree];
     for (int i = degree - 1; i >= 0; i--) {
         result = result * x + coeffs[i];
@@ -20,7 +21,7 @@ static double polynomial(double x, const double *coeffs, int degree) {
     return result;
 }
 
-static double newton_sqrt(double x) {
+static MAYA_FIXTURE double newton_sqrt(double x) {
     if (x < 0) return -1.0;
     if (x == 0) return 0.0;
     double guess = x / 2.0;
@@ -30,7 +31,7 @@ static double newton_sqrt(double x) {
     return guess;
 }
 
-static float float_accumulate(const float *arr, int n) {
+static MAYA_FIXTURE float float_accumulate(const float *arr, int n) {
     float sum = 0.0f;
     for (int i = 0; i < n; i++) {
         sum += arr[i];

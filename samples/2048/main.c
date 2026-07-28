@@ -278,7 +278,8 @@ void addRandom(uint8_t board[SIZE][SIZE])
 
 	if (!initialized)
 	{
-		srand(time(NULL));
+		/* Keep original/protected validation independent of wall-clock boundaries. */
+		srand(0x4d415941u);
 		initialized = true;
 	}
 

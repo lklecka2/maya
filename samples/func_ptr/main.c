@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 typedef int (*binop_t)(int, int);
+#define MAYA_FIXTURE __attribute__((noinline, noipa, used))
 
 static int add(int a, int b) { return a + b; }
 static int sub(int a, int b) { return a - b; }
@@ -11,7 +12,7 @@ static int mul(int a, int b) { return a * b; }
 static int divide(int a, int b) { return b != 0 ? a / b : 0; }
 static int mod(int a, int b) { return b != 0 ? a % b : 0; }
 
-static int apply(binop_t op, int a, int b) {
+MAYA_FIXTURE static int apply(binop_t op, int a, int b) {
     return op(a, b);
 }
 

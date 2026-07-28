@@ -2,6 +2,7 @@
    unions, flexible array patterns, struct arrays, bitfields */
 #include <stdio.h>
 #include <string.h>
+#define MAYA_FIXTURE __attribute__((noinline, noipa, used))
 
 typedef struct {
     double x, y;
@@ -22,36 +23,36 @@ typedef union {
     unsigned char bytes[4];
 } Pun;
 
-static Point point_add(Point a, Point b) {
+static MAYA_FIXTURE Point point_add(Point a, Point b) {
     return (Point){a.x + b.x, a.y + b.y};
 }
 
-static Point point_scale(Point p, double s) {
+static MAYA_FIXTURE Point point_scale(Point p, double s) {
     return (Point){p.x * s, p.y * s};
 }
 
-static double point_dist(Point a, Point b) {
+static MAYA_FIXTURE double point_dist(Point a, Point b) {
     double dx = a.x - b.x;
     double dy = a.y - b.y;
     return dx * dx + dy * dy;
 }
 
-static void circle_init(Circle *c, double cx, double cy, double r) {
+static MAYA_FIXTURE void circle_init(Circle *c, double cx, double cy, double r) {
     c->center.x = cx;
     c->center.y = cy;
     c->radius = r;
 }
 
-static double circle_area(const Circle *c) {
+static MAYA_FIXTURE double circle_area(const Circle *c) {
     return 3.14159265358979 * c->radius * c->radius;
 }
 
-static int rect_contains(const Rect *r, Point p) {
+static MAYA_FIXTURE int rect_contains(const Rect *r, Point p) {
     return p.x >= r->min.x && p.x <= r->max.x &&
            p.y >= r->min.y && p.y <= r->max.y;
 }
 
-static Rect rect_from_circle(const Circle *c) {
+static MAYA_FIXTURE Rect rect_from_circle(const Circle *c) {
     Rect r;
     r.min.x = c->center.x - c->radius;
     r.min.y = c->center.y - c->radius;
@@ -60,7 +61,7 @@ static Rect rect_from_circle(const Circle *c) {
     return r;
 }
 
-static Point centroid(const Point *pts, int n) {
+static MAYA_FIXTURE Point centroid(const Point *pts, int n) {
     Point sum = {0, 0};
     for (int i = 0; i < n; i++) {
         sum = point_add(sum, pts[i]);

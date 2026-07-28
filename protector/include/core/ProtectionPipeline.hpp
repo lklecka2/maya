@@ -2,7 +2,8 @@
 
 #include "Context.hpp"
 
-class ProtectionPipeline {
-public:
-    static void protect(ProtectionContext& ctx);
-};
+namespace maya {
+
+void protect_binary(ProtectionContext& ctx);
+
+} // namespace maya

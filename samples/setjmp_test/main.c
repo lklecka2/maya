@@ -2,11 +2,12 @@
    and register save/restore across protection boundaries */
 #include <stdio.h>
 #include <setjmp.h>
+#define MAYA_FIXTURE __attribute__((noinline, noipa, used))
 
 static jmp_buf escape;
 static int depth;
 
-static void deep_call(int n) {
+MAYA_FIXTURE static void deep_call(int n) {
     depth = n;
     if (n <= 0) {
         printf("deep_call: bottom reached, jumping back\n");
@@ -19,7 +20,7 @@ static void deep_call(int n) {
 
 static jmp_buf error_jmp;
 
-static int safe_divide(int a, int b) {
+MAYA_FIXTURE static int safe_divide(int a, int b) {
     if (b == 0) {
         longjmp(error_jmp, 1);
     }
@@ -27,13 +28,22 @@ static int safe_divide(int a, int b) {
 }
 
 static jmp_buf outer, inner;
+static sigjmp_buf repeated;
 
-static void inner_func(void) {
+MAYA_FIXTURE static int repeated_jump(void) {
+    int value = sigsetjmp(repeated, 1);
+    if (value < 3) {
+        siglongjmp(repeated, value + 1);
+    }
+    return value;
+}
+
+MAYA_FIXTURE static void inner_func(void) {
     printf("inner_func: jumping to inner\n");
     longjmp(inner, 1);
 }
 
-static void outer_func(void) {
+MAYA_FIXTURE static void outer_func(void) {
     if (setjmp(inner) == 0) {
         printf("outer_func: calling inner_func\n");
         inner_func();
@@ -71,6 +81,8 @@ int main(void) {
     } else {
         printf("outer caught jump with value %d\n", val);
     }
+
+    printf("repeated sigsetjmp result=%d\n", repeated_jump());
 
     printf("all setjmp tests passed\n");
     return 0;

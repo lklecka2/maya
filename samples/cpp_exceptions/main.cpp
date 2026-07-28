@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <stdexcept>
 
-static int leaf(int value) {
+__attribute__((noinline, noipa, used)) static int leaf(int value) {
     if (value == 7) {
         throw std::runtime_error("maya exception path");
     }

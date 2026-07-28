@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 
-static int parse_payload(int value) {
+__attribute__((noinline, noipa, used)) static int parse_payload(int value) {
     if (value == 13) {
         throw std::runtime_error("timer payload");
     }
