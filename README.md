@@ -4,8 +4,19 @@ Maya is a bin-to-bin protector for Linux AArch64 ELF executables.
 
 ## Build
 
-Install CMake, an AArch64 cross compiler, Python, and Conan, then create a Conan
-profile appropriate for the build host.
+Install a C/C++ toolchain, CMake, an AArch64 cross compiler, Python, Conan 2, and xxd:
+
+```bash
+sudo apt update
+sudo apt install \
+  build-essential cmake python3 pipx xxd \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+  binutils-aarch64-linux-gnu
+pipx install conan
+pipx ensurepath
+```
+
+Create a Conan profile appropriate for the build host:
 
 ```bash
 conan export conan/recipes/capstone --version=5.0.7
